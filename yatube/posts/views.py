@@ -1,10 +1,12 @@
-from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, render, redirect
-from django.views.decorators.cache import cache_page
-from .models import Post, Group, User, Follow
-from .forms import PostForm, CommentForm
+from django.core.paginator import Paginator
+from django.db import IntegrityError
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.cache import cache_page
+
+from .forms import CommentForm, PostForm
+from .models import Follow, Group, Post, User
 
 POSTS_AMOUNT = 10
 
@@ -45,10 +47,9 @@ def profile(request, username):
     page_obj = paginate_posts(request, posts)
     following = False
     if request.user.is_authenticated:
-        if len(Follow.objects.filter(
-                user=request.user,
-                author=User.objects.filter(username=username)[0])) > 0:
-            following = True
+        following = (Follow.objects.filter(
+            user=request.user,
+            author=User.objects.filter(username=username)[0]).exists)
     context = {
         'page_obj': page_obj,
         'author': author,
@@ -168,16 +169,13 @@ def follow_index(request):
 @login_required
 def profile_follow(request, username):
     redirect_page = reverse('posts:profile', kwargs={'username': username})
-    already_following = Follow.objects.filter(
-        user=request.user,
-        author=User.objects.filter(username=username)[0]
-    ).exists()
-    if (request.user != User.objects.filter(username=username)[0]
-            and not already_following):
+    try:
         Follow.objects.create(
             user=request.user,
             author=User.objects.filter(username=username)[0]
         )
+    except IntegrityError:
+        return redirect(redirect_page)
     return redirect(redirect_page)
 
 
@@ -187,5 +185,11 @@ def profile_unfollow(request, username):
         user=request.user,
         author=User.objects.filter(username=username)[0]
     ).delete()
+    print(
+        Follow.objects.filter(
+            user=request.user,
+            author=User.objects.filter(username=username)[0]
+        )
+    )
     redirect_page = reverse('posts:profile', kwargs={'username': username})
     return redirect(redirect_page)

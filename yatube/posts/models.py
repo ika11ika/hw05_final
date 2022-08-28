@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 
 User = get_user_model()
 
@@ -81,6 +81,10 @@ class Comment(models.Model):
         help_text="Дата публикации комментария",
     )
 
+    class Meta:
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
+
     def __str__(self):
         return self.text[:15]
 
@@ -100,3 +104,16 @@ class Follow(models.Model):
         verbose_name="Автор",
         help_text="Автор постов",
     )
+
+    class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "author"], name="already_following"
+            ),
+            models.CheckConstraint(
+                check=~models.Q(author=models.F("user")),
+                name="not_self_follow"
+            )
+        ]
